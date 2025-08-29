@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>單字配對小遊戲｜純 HTML 版</title>
+  <style>
+    :root{
+      --bg: #f7fafc;         /* 背景 */
+      --card: #ffffff;       /* 卡片 */
+      --text: #0f172a;       /* 主字色 */
+      --muted:#64748b;       /* 次字色 */
+      --brand:#2563eb;       /* 主色 */
+      --brand-weak:#dbeafe;  /* 主色淡 */
+      --good:#059669;        /* 正確 */
+      --bad:#e11d48;         /* 錯誤 */
+      --good-bg:#ecfdf5;     /* 正確底 */
+      --bad-bg:#fff1f2;      /* 錯誤底 */
+      --border:#e2e8f0;      /* 邊框 */
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans CJK TC", "Noto Sans", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: linear-gradient(180deg, #f8fafc, #eef2f7);
+      color:var(--text);
+    }
+    .container{ max-width:920px; margin:0 auto; padding:24px 16px 48px; }
+    header{ display:flex; gap:16px; flex-wrap:wrap; align-items:end; justify-content:space-between; margin-bottom:16px; }
+    h1{ margin:0; font-size:clamp(20px, 3vw, 26px); }
+    .controls{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .select, .btn{ height:40px; padding:0 12px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); cursor:pointer; }
+    .btn{ display:inline-flex; align-items:center; gap:8px; font-weight:600; box-shadow:0 1px 0 rgba(0,0,0,.05); }
+    .btn.primary{ background:var(--brand); color:#fff; border-color:transparent; }
+    .btn.secondary{ background:#fff; }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+    .meta{ display:flex; align-items:center; justify-content:space-between; margin:14px 0; color:var(--muted); font-size:14px; }
+    .badge{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); padding:2px 8px; border-radius:999px; background:#fff; }
+
+    .progress{ height:8px; width:100%; background:#e5e7eb; border-radius:999px; overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.04); }
+    .bar{ height:100%; width:0%; background:linear-gradient(90deg, var(--brand), #22c55e); transition:width .25s ease; }
+
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 4px 16px rgba(2,6,23,.06); overflow:hidden; }
+    .card-h{ padding:16px 18px; border-bottom:1px solid var(--border); }
+    .card-c{ padding:18px; }
+    .card-f{ padding:16px 18px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+
+    .grid{ display:grid; grid-template-columns:1fr; gap:12px; }
+    @media (min-width:640px){ .grid{ grid-template-columns:1fr 1fr; } }
+
+    .opt{ text-align:left; background:#fff; border:1px solid var(--border); border-radius:16px; padding:14px 14px; display:flex; gap:10px; align-items:flex-start; cursor:pointer; transition:transform .06s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease; }
+    .opt:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(2,6,23,.08); }
+    .opt.lock{ cursor:default; }
+    .opt.correct{ background:var(--good-bg); border-color:#10b981; }
+    .opt.wrong{ background:var(--bad-bg); border-color:#fb7185; }
+    .opt .tag{ display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:999px; border:1px solid var(--border); font-weight:700; font-size:12px; color:var(--text); }
+    .opt .text{ line-height:1.6; }
+
+    .hint{ color:var(--muted); font-size:14px; display:flex; align-items:center; gap:8px; }
+    .hint.good{ color:var(--good); }
+    .hint.bad{ color:var(--bad); }
+
+    .result-grid{ display:grid; grid-template-columns:1fr; gap:12px; }
+    @media (min-width:640px){ .result-grid{ grid-template-columns:1fr 1fr; } }
+    .result-item{ border:1px solid var(--border); border-radius:16px; padding:12px 14px; }
+
+    footer{ margin-top:24px; text-align:center; color:var(--muted); font-size:12px; }
+    .visually-hidden{ position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px); white-space:nowrap; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>單字配對小遊戲（純 HTML 版）</h1>
+      <div class="controls">
+        <label>
+          <select id="mode" class="select" title="模式">
+            <option value="A">英→中</option>
+            <option value="B">中→英</option>
+          </select>
+        </label>
+        <label>
+          <select id="qcount" class="select" title="題數"></select>
+        </label>
+        <button id="start" class="btn primary" title="開始或重來">▶ 開始 / 重來</button>
+      </div>
+    </header>
+
+    <div class="meta">
+      <div class="badge"><span id="badgeIndex">0/0</span><span>進度</span></div>
+      <div>分數：<strong id="score">0</strong></div>
+    </div>
+    <div class="progress" aria-hidden="true"><div id="bar" class="bar"></div></div>
+
+    <section id="stage" style="margin-top:16px;"></section>
+
+    <footer>
+      小撇步：鍵盤 1–4 或 A–D 可選項、Enter 下一題。要新增單字，在程式最上方的 <code>WORDS</code> 陣列加物件即可。
+    </footer>
+  </div>
+
+  <script>
+  // ===== 詞庫（在這裡擴充） =====
+  const WORDS = [
+    { word: 'dissuade', pos: '(vt)', zh: '勸阻' },
+    { word: 'distort', pos: '(vt)', zh: '曲解、扭歪' },
+    { word: 'distress', pos: '(vt)/(N)', zh: '使傷心/憂慮、貧困；窘迫、遇難' },
+    { word: 'dividend', pos: '(N)', zh: '紅利、被除數' },
+    { word: 'dock', pos: '(vi)/(N)', zh: '停靠碼頭/船塢' },
+    { word: 'doctrine', pos: '(N)', zh: '教條' },
+    { word: 'dodge', pos: '(vi)/(vt)/(N)', zh: '躲開/逃避/伎倆' },
+    { word: 'doom', pos: '(vt)/(N)', zh: '注定/厄運' },
+    { word: 'doze', pos: '(vi)/(N)', zh: '小睡/小睡' },
+    { word: 'drape',   pos: '(vt)',      zh: '(用布)披；蓋、掛在某處(+over)' }, 
+    { word: 'drastic', pos: '(adj)',     zh: '嚴厲的' },
+    { word: 'draught', pos: '(N)',       zh: '冷風；喝下一口(in a ...)、國際跳棋' },
+    { word: 'dread',   pos: '(vt)/(N)',  zh: '擔心/恐懼(in ... of)' },
+    { word: 'dreary',  pos: '(adj)',     zh: '令人沮喪的' },
+    { word: 'dresser', pos: '(N)',       zh: '衣櫥、碗櫥、穿著...的人' },
+    { word: 'drift',   pos: '(vi)/(N)',  zh: '漂流、漂泊、堆積/大意(get the ... of)、漂流、趨勢' },
+    { word: 'drill',     pos: '(v)/(N)',        zh: '鑽孔、訓練/鑽、演習、練習' },  
+    { word: 'dumb',      pos: '(adj)',          zh: '啞的、說不出話的、笨的' },
+    { word: 'dusk',      pos: '(N)',            zh: '黃昏、傍晚' },
+    { word: 'dwarf',     pos: '(vt)/(N)/(adj)', zh: '使相比之下顯得矮小/矮子；侏儒/矮小的' },
+    { word: 'dwell',     pos: '(vi.)',          zh: '在...居住(+in)' },
+    { word: 'eccentric', pos: '(N)/(adj)',      zh: '行為古怪的人/古怪的' },
+    { word: 'eclipse',   pos: '(vt)/(N)',       zh: '遮住...的光、使...失色/(日or月)蝕、黯然失色' },
+    { word: 'editorial', pos: '(N)/(adj)',      zh: '社論/編輯的' },
+    { word: 'elaborate', pos: '(vi)/(adj)',     zh: '詳盡說明(+on)/詳盡的、精心製作的' },
+
+  ];
+
+  // ===== 小工具 =====
+  const $ = (sel, parent=document) => parent.querySelector(sel);
+  const clamp = (n, a, b) => Math.min(Math.max(n, a), b);
+  const shuffle = (arr) => { const a = arr.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; };
+  const sample = (arr, k) => shuffle(arr).slice(0, k);
+
+  const MODES = { EN_TO_ZH:'A', ZH_TO_EN:'B' };
+
+  function buildQuestion(entry, list, mode){
+    const others = list.filter(x=>x!==entry);
+    const distractors = sample(others, Math.min(3, Math.max(0, others.length)));
+    let stem, options, correctIndex;
+    if(mode===MODES.EN_TO_ZH){
+      stem = `${entry.word} ${entry.pos}`;
+      options = shuffle([entry, ...distractors]).map(o=>o.zh);
+      correctIndex = options.indexOf(entry.zh);
+    }else{
+      stem = entry.zh;
+      options = shuffle([entry, ...distractors]).map(o=>`${o.word} ${o.pos}`);
+      correctIndex = options.indexOf(`${entry.word} ${entry.pos}`);
+    }
+    return { entry, mode, stem, options, correctIndex };
+  }
+  function generateQuiz(list, count, mode){
+    const picks = count >= list.length ? shuffle(list) : sample(list, count);
+    return picks.map(e=>buildQuestion(e, list, mode));
+  }
+
+  // ===== 狀態 =====
+  const els = { stage: $('#stage'), bar: $('#bar'), badge: $('#badgeIndex'), score: $('#score'), mode: $('#mode'), qcount: $('#qcount'), start: $('#start') };
+  const letter = (i)=>'ABCD'[i];
+  let questions = [];
+  let idx = 0;
+  let selected = null; // number or null
+  let answers = [];    // {correct, picked, correctIndex}
+  let finished = false;
+
+  function loadPrefs(){
+    try{
+      const m = localStorage.getItem('vm_mode');
+      const q = Number(localStorage.getItem('vm_qcount'))||Math.min(10, WORDS.length);
+      if(m && (m==='A'||m==='B')) els.mode.value = m; else els.mode.value='A';
+      els.qcount.innerHTML = '';
+      const options = [5,10,15, WORDS.length].filter((n,i,a)=>a.indexOf(n)===i && n<=WORDS.length);
+      options.forEach(n=>{
+        const opt = document.createElement('option');
+        opt.value = String(n); opt.textContent = n===WORDS.length ? `全部（${WORDS.length}）` : String(n);
+        els.qcount.appendChild(opt);
+      });
+      const clamped = clamp(q, 1, WORDS.length);
+      els.qcount.value = String(options.includes(clamped)?clamped:options[0]);
+    }catch(e){ els.mode.value='A'; }
+  }
+
+  function savePrefs(){
+    localStorage.setItem('vm_mode', els.mode.value);
+    localStorage.setItem('vm_qcount', els.qcount.value);
+  }
+
+  function startQuiz(){
+    const mode = els.mode.value;
+    const count = Number(els.qcount.value);
+    questions = generateQuiz(WORDS, count, mode);
+    idx = 0; selected = null; answers = []; finished = false;
+    updateHeader();
+    renderQuestion();
+  }
+
+  function updateHeader(){
+    const total = questions.length||0;
+    const done = Math.min(idx + ((selected!==null||finished)?1:0), total);
+    const pct = total? Math.round(done/total*100) : 0;
+    els.badge.textContent = `${Math.min(idx+1,total)}/${total}`;
+    els.bar.style.width = pct + '%';
+    const score = answers.filter(x=>x.correct).length;
+    els.score.textContent = score;
+  }
+
+  function renderQuestion(){
+    updateHeader();
+    if(finished){ return renderResult(); }
+    if(!questions.length){
+      els.stage.innerHTML = `<div class="card"><div class="card-c" style="text-align:center; padding:28px;">還沒開始作答，按上面的「開始 / 重來」吧！</div></div>`;
+      return;
+    }
+    const q = questions[idx];
+    const head = `<div class="card-h"><div style="color:var(--muted); font-size:14px;">${q.mode==='A'?'英→中':'中→英'} · 第 ${idx+1} 題</div><h2 style="margin:.25rem 0 0; font-size:22px;">${escapeHTML(q.stem)}</h2></div>`;
+    const options = q.options.map((opt,i)=>{
+      const locked = selected!==null;
+      const isChosen = selected===i;
+      const isCorrect = q.correctIndex===i;
+      const cls = 'opt'+(locked?(isCorrect?' correct':(isChosen?' wrong':' lock')):'');
+      return `<button class="${cls}" data-index="${i}"><span class="tag">${letter(i)}</span><span class="text">${escapeHTML(opt)}</span></button>`;
+    }).join('');
+
+    const hint = selected===null
+      ? `<div class="hint"><span aria-hidden>⌨</span><span>快捷鍵：1–4 或 A–D 選項，Enter 下一題</span></div>`
+      : (answers[idx]?.correct
+          ? `<div class="hint good">✔ 答對了！</div>`
+          : `<div class="hint bad">✘ 答錯。正解是：${q.mode==='A'? escapeHTML(q.entry.zh) : escapeHTML(q.entry.word+' '+q.entry.pos)}</div>`);
+
+    const foot = `<div class="card-f"><div>${hint}</div><div><button class="btn secondary" id="restart">⟲ 重來</button><button class="btn primary" id="next" ${selected===null?'disabled':''}>下一題</button></div></div>`;
+
+    els.stage.innerHTML = `<div class="card">${head}<div class="card-c"><div class="grid" id="opts">${options}</div></div>${foot}</div>`;
+
+    $('#restart', els.stage).addEventListener('click', startQuiz);
+    $('#next', els.stage).addEventListener('click', next);
+    $('#opts', els.stage).addEventListener('click', (e)=>{
+      const btn = e.target.closest('button.opt');
+      if(!btn) return;
+      const i = Number(btn.dataset.index);
+      selectOption(i);
+    });
+  }
+
+  function selectOption(i){
+    if(finished || selected!==null) return;
+    selected = i;
+    const q = questions[idx];
+    const correctIndex = q.correctIndex;
+    answers.push({ correct: i===correctIndex, picked: i, correctIndex });
+    renderQuestion();
+  }
+
+  function next(){
+    if(finished) return;
+    if(selected===null) return;
+    if(idx + 1 >= questions.length){
+      finished = true;
+      renderResult();
+    }else{
+      idx += 1; selected = null; renderQuestion();
+    }
+  }
+
+  function renderResult(){
+    updateHeader();
+    const total = questions.length; const score = answers.filter(x=>x.correct).length;
+    const header = `<div class="card-h"><h2 style="margin:0; font-size:22px;">結果</h2><div style="color:var(--muted); margin-top:4px;">你完成了 ${total} 題，答對 ${score} 題，正確率 ${Math.round(score/total*100)}%。</div></div>`;
+    const list = questions.map((q,i)=>{
+      const ans = answers[i]; const isCorrect = ans?.correct; const user = ans?.picked;
+      return `<div class="result-item" style="background:${isCorrect?'var(--good-bg)':'var(--bad-bg)'}; border-color:${isCorrect?'#86efac':'#fecdd3'}">
+        <div style="color:var(--muted); font-size:13px;">第 ${i+1} 題 · ${q.mode==='A'?'英→中':'中→英'}</div>
+        <div style="font-weight:700; margin-top:2px;">${escapeHTML(q.stem)}</div>
+        <div style="font-size:14px; margin-top:6px;">你的答案：<strong>${escapeHTML(q.options[user])}</strong>${!isCorrect?`<br>正確答案：<strong>${escapeHTML(q.options[q.correctIndex])}</strong>`:''}</div>
+      </div>`;
+    }).join('');
+
+    const foot = `<div class="card-f" style="justify-content:flex-end;"><button class="btn primary" id="again">▶ 再玩一次</button></div>`;
+
+    els.stage.innerHTML = `<div class="card">${header}<div class="card-c"><div class="result-grid">${list}</div></div>${foot}</div>`;
+    $('#again', els.stage).addEventListener('click', startQuiz);
+  }
+
+  // 鍵盤快捷鍵
+  window.addEventListener('keydown', (e)=>{
+    const k = e.key.toLowerCase();
+    const map = { '1':0, '2':1, '3':2, '4':3, 'a':0, 'b':1, 'c':2, 'd':3 };
+    if(k in map){ selectOption(map[k]); }
+    else if(k==='enter'){ if(finished) startQuiz(); else next(); }
+  });
+
+  // util: 轉義 HTML
+  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c])); }
+
+  // 初始化
+  loadPrefs();
+  els.start.addEventListener('click', ()=>{ savePrefs(); startQuiz(); });
+  els.mode.addEventListener('change', savePrefs);
+  els.qcount.addEventListener('change', savePrefs);
+  // 初始畫面
+  (function initFirst(){
+    savePrefs();
+    questions = []; idx=0; selected=null; answers=[]; finished=false;
+    updateHeader(); renderQuestion();
+  })();
+  </script>
+</body>
+</html>
